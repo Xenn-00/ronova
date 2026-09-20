@@ -6,7 +6,9 @@ use std::net::Ipv4Addr;
 
 use crate::{
     capture::CaptureRecord,
-    packet::{IpProtocol, ParsedIpv4, ParsedNetwork, ParsedTcp, parse_arp},
+    packet::{
+        IpProtocol, ParsedIpv4, ParsedNetwork, ParsedTcp, ParsedTransport, parse_arp,
+    },
 };
 
 use super::{
@@ -83,6 +85,19 @@ impl PacketParser {
         })
     }
 
+    // Parses the IPv4 transport payload according to the IPv4 protocol field.
+    // Die Trennung verhindert, dass ein erkannter IP-Protokolltyp mit einem
+    // erfolgreich geparsten Transport-Header verwechselt wird.
+    fn parse_ipv4_transport(
+        &self,
+        ipv4: &Ipv4Slice<'_>,
+    ) -> Result<ParsedTransport, PacketParseError> {
+        match ipv4.header().protocol().0 {
+            6 => Ok(ParsedTransport::Tcp(self.parse_tcp(ipv4.payload())?)),
+            protocol => Ok(ParsedTransport::Unsupported { protocol }),
+        }
+    }
+
     // Parses an Ethernet frame and dispatches its payload according
     // to the Ethernet EtherType
     pub fn parse(&self, record: &CaptureRecord<'_>) -> Result<ParsedPacket, PacketParseError> {
@@ -101,8 +116,29 @@ impl PacketParser {
             }
 
             0x0800 => {
-                let ipv4 = self.parse_ipv4(ethernet_slice.payload_slice())?;
-                ParsedNetwork::Ipv4(ipv4)
+                let ipv4_slice = Ipv4Slice::from_slice(ethernet_slice.payload_slice())
+                    .map_err(Self::map_ipv4_error)?;
+
+                let header = ipv4_slice.header();
+
+                let ipv4 = ParsedIpv4 {
+                    source: Ipv4Addr::from(header.source()),
+                    destination: Ipv4Addr::from(header.destination()),
+                    protocol: Self::map_ip_protocol(header.protocol().0),
+                    ttl: header.ttl(),
+                    total_length: header.total_len(),
+                    identification: header.identification(),
+                    dont_fragment: header.dont_fragment(),
+                    more_fragments: header.more_fragments(),
+                    fragment_offset: header.fragments_offset().value(),
+                };
+
+                let transport = self.parse_ipv4_transport(&ipv4_slice)?;
+
+                ParsedNetwork::Ipv4 {
+                    packet: ipv4,
+                    transport,
+                }
             }
 
             ether_type => ParsedNetwork::Unsupported { ether_type },
