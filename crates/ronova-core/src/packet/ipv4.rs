@@ -103,7 +103,7 @@ mod tests {
             0x08, 0x00, // EtherType: IPv4.
             0x45, // IPv4 header: version 4, IHL 5.
             0x00, // DSCP/ECN.
-            0x00, 0x14, // Total length: 20 bytes.
+            0x00, 0x28, // Total length: 40 bytes (20 IPv4 + 20 TCP).
             0x12, 0x34, // Identification.
             0x40, 0x00, // Don't Fragment flag.
             0x40, // TTL.
@@ -111,6 +111,15 @@ mod tests {
             0x00, 0x00, // Header checksum.
             192, 168, 1, 10, // Source IP: 192.168.1.10.
             192, 168, 1, 20, // Destination IP: 192.168.1.20.
+            0xd4, 0x31, // Source port: 54321.
+            0x01, 0xbb, // Destination port: 443.
+            0x00, 0x00, 0x00, 0x01, // Sequence number.
+            0x00, 0x00, 0x00, 0x00, // Acknowledgement number.
+            0x50, // Data offset: 5 (20-byte TCP header).
+            0x02, // SYN flag.
+            0xff, 0xff, // Window size.
+            0x00, 0x00, // Checksum.
+            0x00, 0x00, // Urgent pointer.
         ];
 
         let record = CaptureRecord::new(&bytes);
@@ -123,7 +132,10 @@ mod tests {
         assert_eq!(packet.ethernet.ether_type, 0x0800);
 
         match packet.network {
-            ParsedNetwork::Ipv4(ipv4) => {
+            ParsedNetwork::Ipv4 {
+                packet: ipv4,
+                transport: _,
+            } => {
                 assert_eq!(ipv4.source, Ipv4Addr::new(192, 168, 1, 10));
                 assert_eq!(ipv4.destination, Ipv4Addr::new(192, 168, 1, 20));
                 assert_eq!(ipv4.protocol, IpProtocol::Tcp);
