@@ -1,4 +1,4 @@
-use crate::packet::ParsedIpv4;
+use crate::packet::{ParsedIpv4, ParsedTransport};
 
 // Ronova's representation of a successfully parsed Ethernet frame.
 #[derive(Debug, PartialEq, Eq)]
@@ -32,23 +32,29 @@ pub struct ParsedArp {
     pub target_protocol_address: [u8; 4],
 }
 
-// Represensts a network-layer packet recognized by Ronova.
+// Represents a network-layer packet recognized by Ronova.
 #[derive(Debug, PartialEq, Eq)]
 pub enum ParsedNetwork {
     // Address Resolution Protocol packet.
     Arp(ParsedArp),
 
-    // Internet Protocol version 4 packet.
-    Ipv4(ParsedIpv4),
+    // Internet Protocol version 4 packet with its parsed transport payload.
+    Ipv4 {
+        // Parsed IPv4 header.
+        packet: ParsedIpv4,
 
-    /// EtherType is currently unsupported by Ronova.
+        // Parsed transport-layer payload.
+        transport: ParsedTransport,
+    },
+
+    // EtherType is currently unsupported by Ronova.
     Unsupported {
         ether_type: u16,
     },
 }
 
 // Represents a successfully parsed packet at the layers currently
-// understood by Ronova
+// understood by Ronova.
 #[derive(Debug, PartialEq, Eq)]
 pub struct ParsedPacket {
     // Parsed Ethernet frame.
