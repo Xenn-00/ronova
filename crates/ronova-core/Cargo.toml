@@ -1,0 +1,9 @@
+[package]
+name = "ronova-core"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+etherparse = "0.21.0"
+pcap-parser = "0.17.0"
+serde = { version = "1.0.229", features = ["derive"] }
