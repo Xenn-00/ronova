@@ -1,18 +1,14 @@
+use super::ParsedTcp;
+
 // Represents a recognized transport layer protocol.
-// Der Grund für eine Darstellung ist, dass ein erkannter
-// IP Protokolltyp noch nicht bedeutet, dass das Paket korrekt geparst werden kann.
+// Der Grund für die Enum-Struktur ist, dass jedes Transportprotokoll
+// seine eigenen semantischen Header-Daten besitzt.
 #[derive(Debug, PartialEq, Eq)]
 pub enum ParsedTransport {
-    // Transmission Controll Protocol
-    Tcp {
-        // Source port number.
-        source_port: u16,
+    // Successfully parsed TCP segment.
+    Tcp(ParsedTcp),
 
-        // Destination port number.
-        destination_port: u16,
-    },
-
-    // User Datagram Protocol
+    // User Datagram Protocol.
     Udp {
         // Source port number.
         source_port: u16,
@@ -21,7 +17,7 @@ pub enum ParsedTransport {
         destination_port: u16,
     },
 
-    // Internet Control Message Protocol
+    // Internet Control Message Protocol.
     Icmp {
         // ICMP type.
         icmp_type: u8,
@@ -30,7 +26,7 @@ pub enum ParsedTransport {
         icmp_code: u8,
     },
 
-    // Internet Control Message Protocol version 6
+    // Internet Control Message Protocol version 6.
     Icmpv6 {
         // ICMPv6 type.
         icmp_type: u8,
@@ -49,52 +45,85 @@ pub enum ParsedTransport {
 #[cfg(test)]
 mod tests {
     use super::ParsedTransport;
+    use crate::packet::ParsedTcp;
 
     #[test]
     fn represents_supported_transport_protocols() {
         // Ronova should distinguish the transport protocols it currently models.
-        // Diese Varianten bilden zunächst nur die erkannten Protokollart ab
-        // die eigentlichen Header werden erst in den nächsten Schritten geparst.
+        // Diese Varianten bilden zunächst nur die erkannte Protokollart ab.
+        let tcp = ParsedTcp {
+            source_port: 1234,
+            destination_port: 5678,
+            sequence_number: 1,
+            acknowledgement_number: 2,
+            ns: false,
+            fin: false,
+            syn: true,
+            rst: false,
+            psh: false,
+            ack: true,
+            urg: false,
+            ece: false,
+            cwr: false,
+            window_size: 65535,
+            checksum: 0x1234,
+            urgent_pointer: 0,
+        };
+
         assert_eq!(
-            ParsedTransport::Tcp {
+            ParsedTransport::Tcp(tcp),
+            ParsedTransport::Tcp(ParsedTcp {
                 source_port: 1234,
-                destination_port: 5678
-            },
-            ParsedTransport::Tcp {
-                source_port: 1234,
-                destination_port: 5678
-            }
+                destination_port: 5678,
+                sequence_number: 1,
+                acknowledgement_number: 2,
+                ns: false,
+                fin: false,
+                syn: true,
+                rst: false,
+                psh: false,
+                ack: true,
+                urg: false,
+                ece: false,
+                cwr: false,
+                window_size: 65535,
+                checksum: 0x1234,
+                urgent_pointer: 0,
+            })
         );
+
         assert_eq!(
             ParsedTransport::Udp {
                 source_port: 1234,
-                destination_port: 1234
+                destination_port: 5678,
             },
             ParsedTransport::Udp {
                 source_port: 1234,
-                destination_port: 1234
+                destination_port: 5678,
             }
         );
+
         assert_eq!(
             ParsedTransport::Icmp {
                 icmp_type: 8,
-                icmp_code: 0
+                icmp_code: 0,
             },
             ParsedTransport::Icmp {
                 icmp_type: 8,
-                icmp_code: 0
+                icmp_code: 0,
             }
         );
+
         assert_eq!(
             ParsedTransport::Icmpv6 {
                 icmp_type: 8,
-                icmp_code: 0
+                icmp_code: 0,
             },
             ParsedTransport::Icmpv6 {
                 icmp_type: 8,
-                icmp_code: 0
+                icmp_code: 0,
             }
-        )
+        );
     }
 
     #[test]
