@@ -282,6 +282,85 @@ mod tests {
     }
 
     #[test]
+    fn dispatches_ipv4_tcp_payload_to_tcp_parser() {
+        let bytes = [
+            // Destination MAC.
+            0x00, 0x11, 0x22, 0x33, 0x44, 0x55,
+            // Source MAC.
+            0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb,
+            // EtherType: IPv4.
+            0x08, 0x00,
+
+            // IPv4 header: version 4, IHL 5.
+            0x45,
+            // DSCP/ECN.
+            0x00,
+            // Total length: 40 bytes (20 IPv4 + 20 TCP).
+            0x00, 0x28,
+            // Identification.
+            0x12, 0x34,
+            // Don't Fragment flag.
+            0x40, 0x00,
+            // TTL.
+            0x40,
+            // Protocol: TCP.
+            0x06,
+            // Header checksum.
+            0x00, 0x00,
+            // Source: 192.168.1.10.
+            0xc0, 0xa8, 0x01, 0x0a,
+            // Destination: 192.168.1.20.
+            0xc0, 0xa8, 0x01, 0x14,
+
+            // TCP source port: 54321.
+            0xd4, 0x31,
+            // TCP destination port: 443.
+            0x01, 0xbb,
+            // Sequence number: 1000.
+            0x00, 0x00, 0x03, 0xe8,
+            // Acknowledgement number: 2000.
+            0x00, 0x00, 0x07, 0xd0,
+            // Data offset: 5 (20-byte header).
+            0x50,
+            // SYN + ACK.
+            0x12,
+            // Window size.
+            0xfa, 0xf0,
+            // Checksum.
+            0x12, 0x34,
+            // Urgent pointer.
+            0x00, 0x00,
+        ];
+
+        let record = CaptureRecord::new(&bytes);
+        let parser = PacketParser::new();
+
+        let packet = parser
+            .parse(&record)
+            .expect("valid IPv4/TCP packet should parse");
+
+        match packet.network {
+            ParsedNetwork::Ipv4 {
+                packet: ipv4,
+                transport: crate::packet::ParsedTransport::Tcp(tcp),
+            } => {
+                assert_eq!(ipv4.source, "192.168.1.10".parse().unwrap());
+                assert_eq!(ipv4.destination, "192.168.1.20".parse().unwrap());
+                assert_eq!(ipv4.protocol, crate::packet::IpProtocol::Tcp);
+
+                assert_eq!(tcp.source_port, 54321);
+                assert_eq!(tcp.destination_port, 443);
+                assert_eq!(tcp.sequence_number, 1000);
+                assert_eq!(tcp.acknowledgement_number, 2000);
+                assert!(tcp.syn);
+                assert!(tcp.ack);
+            }
+
+            other => panic!("expected parsed IPv4/TCP packet, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn parses_tcp_header() {
         let payload = [
             0xd4, 0x31, // source port: 54321
