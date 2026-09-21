@@ -28,8 +28,7 @@ impl PacketParser {
         &self,
         record: &CaptureRecord<'_>,
     ) -> Result<ParsedEthernet, PacketParseError> {
-        let ethernet =
-            Ethernet2Slice::from_slice_without_fcs(record.data()).map_err(Self::map_error)?;
+        let ethernet = self.parse_ethernet_slice(record)?;
 
         Ok(ParsedEthernet {
             source: ethernet.source(),
@@ -68,34 +67,7 @@ impl PacketParser {
     pub fn parse_ipv4(&self, payload: &[u8]) -> Result<ParsedIpv4, PacketParseError> {
         let ipv4 = Ipv4Slice::from_slice(payload).map_err(Self::map_ipv4_error)?;
 
-        let header = ipv4.header();
-
-        Ok(ParsedIpv4 {
-            source: Ipv4Addr::from(header.source()),
-            destination: Ipv4Addr::from(header.destination()),
-            protocol: Self::map_ip_protocol(header.protocol().0),
-            ttl: header.ttl(),
-            total_length: header.total_len(),
-            identification: header.identification(),
-            dont_fragment: header.dont_fragment(),
-            more_fragments: header.more_fragments(),
-            fragment_offset: header.fragments_offset().value(),
-        })
-    }
-
-    // Parses the IPv4 transport payload according to the IPv4 protocol field.
-    // Die Trennung verhindert, dass ein erkannter IP-Protokolltyp mit einem
-    // erfolgreich geparsten Transport-Header verwechselt wird.
-    fn parse_ipv4_transport(
-        &self,
-        ipv4: &Ipv4Slice<'_>,
-    ) -> Result<ParsedTransport, PacketParseError> {
-        match ipv4.header().protocol().0 {
-            6 => Ok(ParsedTransport::Tcp(
-                self.parse_tcp(ipv4.payload().payload)?,
-            )),
-            protocol => Ok(ParsedTransport::Unsupported { protocol }),
-        }
+        Ok(Self::parsed_ipv4_from_slice(&ipv4))
     }
 
     // Parses an Ethernet frame and dispatches its payload according
@@ -119,20 +91,7 @@ impl PacketParser {
                 let ipv4_slice = Ipv4Slice::from_slice(ethernet_slice.payload_slice())
                     .map_err(Self::map_ipv4_error)?;
 
-                let header = ipv4_slice.header();
-
-                let ipv4 = ParsedIpv4 {
-                    source: Ipv4Addr::from(header.source()),
-                    destination: Ipv4Addr::from(header.destination()),
-                    protocol: Self::map_ip_protocol(header.protocol().0),
-                    ttl: header.ttl(),
-                    total_length: header.total_len(),
-                    identification: header.identification(),
-                    dont_fragment: header.dont_fragment(),
-                    more_fragments: header.more_fragments(),
-                    fragment_offset: header.fragments_offset().value(),
-                };
-
+                let ipv4 = Self::parsed_ipv4_from_slice(&ipv4_slice);
                 let transport = self.parse_ipv4_transport(&ipv4_slice)?;
 
                 ParsedNetwork::Ipv4 {
@@ -154,6 +113,38 @@ impl PacketParser {
         record: &'a CaptureRecord<'a>,
     ) -> Result<Ethernet2Slice<'a>, PacketParseError> {
         Ethernet2Slice::from_slice_without_fcs(record.data()).map_err(Self::map_error)
+    }
+
+    // Converts an already validated IPv4 slice into ronova IPv4 representation.
+    fn parsed_ipv4_from_slice(ipv4: &Ipv4Slice<'_>) -> ParsedIpv4 {
+        let header = ipv4.header();
+
+        ParsedIpv4 {
+            source: Ipv4Addr::from(header.source()),
+            destination: Ipv4Addr::from(header.destination()),
+            protocol: Self::map_ip_protocol(header.protocol().0),
+            ttl: header.ttl(),
+            total_length: header.total_len(),
+            identification: header.identification(),
+            dont_fragment: header.dont_fragment(),
+            more_fragments: header.more_fragments(),
+            fragment_offset: header.fragments_offset().value(),
+        }
+    }
+
+    // Parses the IPv4 transport payload according to the IPv4 protocol field.
+    // Die Trennung verhindert, dass ein erkannter IP-Protokolltyp mit einem
+    // erfolgreich geparsten Transport-Header verwechselt wird.
+    fn parse_ipv4_transport(
+        &self,
+        ipv4: &Ipv4Slice<'_>,
+    ) -> Result<ParsedTransport, PacketParseError> {
+        match ipv4.header().protocol().0 {
+            6 => Ok(ParsedTransport::Tcp(
+                self.parse_tcp(ipv4.payload().payload)?,
+            )),
+            protocol => Ok(ParsedTransport::Unsupported { protocol }),
+        }
     }
 
     // Converts an IANA IP protocol number into Ronova's semantic protocol type.
