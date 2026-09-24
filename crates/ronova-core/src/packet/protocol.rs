@@ -1,5 +1,5 @@
 // Identifies the protocol carried by an IP packet.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum IpProtocol {
     // Internet Control Message Protocol (ICMP)
     Icmp,

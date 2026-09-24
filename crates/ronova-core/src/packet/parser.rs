@@ -66,7 +66,7 @@ impl PacketParser {
     }
 
     pub fn parse_udp(&self, payload: &[u8]) -> Result<ParsedUdp, PacketParseError> {
-        // Parse the captured bytes as a UDP header without copying the payload. return error if didn't match
+        // Parse the captured bytes as a UDP header without copying the payload.
         let udp = UdpSlice::from_slice(payload).map_err(Self::map_error)?;
         Ok(ParsedUdp {
             source_port: udp.source_port(),
@@ -441,10 +441,10 @@ mod tests {
             0x11, // protocol: UDP (17)
             0x00, 0x00, // header checksum
             0xc0, 0xa8, 0x01, 0x0a, // source: 192.168.1.10
-            0xc0, 0xa8, 0x01, 0x14, // source: 192.168.1.20
+            0xc0, 0xa8, 0x01, 0x14, // destination: 192.168.1.20
             // UDP header
             0x04, 0xd2, // source port: 1234
-            0x00, 0x35, // destionation port: 53
+            0x00, 0x35, // destination port: 53
             0x00, 0x0c, // udp length: 12 bytes
             0x12, 0x34, // udp checksum
             // udp payload
