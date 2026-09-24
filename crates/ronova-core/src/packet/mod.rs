@@ -6,6 +6,7 @@ mod parser;
 mod protocol;
 mod tcp;
 mod transport;
+mod udp;
 
 pub use arp::parse_arp;
 pub use error::PacketParseError;
@@ -15,3 +16,4 @@ pub use parser::PacketParser;
 pub use protocol::IpProtocol;
 pub use tcp::ParsedTcp;
 pub use transport::ParsedTransport;
+pub use udp::ParsedUdp;

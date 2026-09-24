@@ -1,12 +1,14 @@
 use etherparse::{
-    Ethernet2Slice, Ipv4Slice, TcpSlice,
+    Ethernet2Slice, Ipv4Slice, TcpSlice, UdpSlice,
     err::{LenError, ipv4::SliceError, tcp::HeaderSliceError},
 };
 use std::net::Ipv4Addr;
 
 use crate::{
     capture::CaptureRecord,
-    packet::{IpProtocol, ParsedIpv4, ParsedNetwork, ParsedTcp, ParsedTransport, parse_arp},
+    packet::{
+        IpProtocol, ParsedIpv4, ParsedNetwork, ParsedTcp, ParsedTransport, ParsedUdp, parse_arp,
+    },
 };
 
 use super::{
@@ -60,6 +62,17 @@ impl PacketParser {
             window_size: tcp.window_size(),
             checksum: tcp.checksum(),
             urgent_pointer: tcp.urgent_pointer(),
+        })
+    }
+
+    pub fn parse_udp(&self, payload: &[u8]) -> Result<ParsedUdp, PacketParseError> {
+        // Parse the captured bytes as a UDP header without copying the payload. return error if didn't match
+        let udp = UdpSlice::from_slice(payload).map_err(Self::map_error)?;
+        Ok(ParsedUdp {
+            source_port: udp.source_port(),
+            destination_port: udp.destination_port(),
+            length: udp.length(),
+            checksum: udp.checksum(),
         })
     }
 
@@ -143,6 +156,9 @@ impl PacketParser {
             6 => Ok(ParsedTransport::Tcp(
                 self.parse_tcp(ipv4.payload().payload)?,
             )),
+            17 => Ok(ParsedTransport::Udp(
+                self.parse_udp(ipv4.payload().payload)?,
+            )),
             protocol => Ok(ParsedTransport::Unsupported { protocol }),
         }
     }
@@ -190,7 +206,7 @@ mod tests {
 
     use crate::{
         capture::CaptureRecord,
-        packet::{PacketParseError, PacketParser, ParsedNetwork},
+        packet::{IpProtocol, PacketParseError, PacketParser, ParsedNetwork, ParsedTransport},
     };
 
     #[test]
@@ -277,29 +293,28 @@ mod tests {
     #[test]
     fn dispatches_ipv4_tcp_payload_to_tcp_parser() {
         let bytes = [
-            // Destination MAC.
-            0x00, 0x11, 0x22, 0x33, 0x44, 0x55, // Source MAC.
-            0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, // EtherType: IPv4.
-            0x08, 0x00, // IPv4 header: version 4, IHL 5.
-            0x45, // DSCP/ECN.
-            0x00, // Total length: 40 bytes (20 IPv4 + 20 TCP).
-            0x00, 0x28, // Identification.
-            0x12, 0x34, // Don't Fragment flag.
-            0x40, 0x00, // TTL.
-            0x40, // Protocol: TCP.
-            0x06, // Header checksum.
-            0x00, 0x00, // Source: 192.168.1.10.
-            0xc0, 0xa8, 0x01, 0x0a, // Destination: 192.168.1.20.
-            0xc0, 0xa8, 0x01, 0x14, // TCP source port: 54321.
-            0xd4, 0x31, // TCP destination port: 443.
-            0x01, 0xbb, // Sequence number: 1000.
-            0x00, 0x00, 0x03, 0xe8, // Acknowledgement number: 2000.
-            0x00, 0x00, 0x07, 0xd0, // Data offset: 5 (20-byte header).
-            0x50, // SYN + ACK.
-            0x12, // Window size.
-            0xfa, 0xf0, // Checksum.
-            0x12, 0x34, // Urgent pointer.
-            0x00, 0x00,
+            0x00, 0x11, 0x22, 0x33, 0x44, 0x55, // Destination MAC.
+            0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, // Source MAC.
+            0x08, 0x00, // EtherType: IPv4.
+            0x45, // IPv4 header: version 4, IHL 5.
+            0x00, // DSCP/ECN.
+            0x00, 0x28, // Total length: 40 bytes (20 IPv4 + 20 TCP).
+            0x12, 0x34, // Identification.
+            0x40, 0x00, // Don't Fragment flag.
+            0x40, // TTL.
+            0x06, // Protocol: TCP.
+            0x00, 0x00, // Header checksum.
+            0xc0, 0xa8, 0x01, 0x0a, // Source: 192.168.1.10.
+            0xc0, 0xa8, 0x01, 0x14, // Destination: 192.168.1.20.
+            0xd4, 0x31, // TCP source port: 54321.
+            0x01, 0xbb, // TCP destination port: 443.
+            0x00, 0x00, 0x03, 0xe8, // Sequence number: 1000.
+            0x00, 0x00, 0x07, 0xd0, // Acknowledgement number: 2000.
+            0x50, // Data offset: 5 (20-byte header).
+            0x12, // SYN + ACK.
+            0xfa, 0xf0, // Window size.
+            0x12, 0x34, // Checksum.
+            0x00, 0x00, // Urgent pointer.
         ];
 
         let record = CaptureRecord::new(&bytes);
@@ -312,11 +327,11 @@ mod tests {
         match packet.network {
             ParsedNetwork::Ipv4 {
                 packet: ipv4,
-                transport: crate::packet::ParsedTransport::Tcp(tcp),
+                transport: ParsedTransport::Tcp(tcp),
             } => {
                 assert_eq!(ipv4.source, Ipv4Addr::new(192, 168, 1, 10));
                 assert_eq!(ipv4.destination, Ipv4Addr::new(192, 168, 1, 20));
-                assert_eq!(ipv4.protocol, crate::packet::IpProtocol::Tcp);
+                assert_eq!(ipv4.protocol, IpProtocol::Tcp);
 
                 assert_eq!(tcp.source_port, 54321);
                 assert_eq!(tcp.destination_port, 443);
@@ -368,5 +383,95 @@ mod tests {
         assert_eq!(tcp.window_size, 64240);
         assert_eq!(tcp.checksum, 0x1234);
         assert_eq!(tcp.urgent_pointer, 0);
+    }
+
+    #[test]
+    fn parses_udp_header() {
+        let parser = PacketParser::new();
+
+        // Minimal valid UDP datagram:
+        // 8 byte header + 4 byte payload
+        let payload = [
+            0x04, 0xd2, // source port: 1234
+            0x00, 0x35, // destination_port: 53
+            0x00, 0x0c, // length: 12 bytes
+            0x12, 0x34, // checksum
+            0xde, 0xad, 0xbe, 0xef, // payload
+        ];
+
+        let udp = parser
+            .parse_udp(&payload)
+            .expect("valid UDP datagram should parse");
+
+        assert_eq!(udp.source_port, 1234);
+        assert_eq!(udp.destination_port, 53);
+        assert_eq!(udp.length, 12);
+        assert_eq!(udp.checksum, 0x1234);
+    }
+
+    #[test]
+    fn rejects_truncated_udp_header() {
+        let parser = PacketParser::new();
+
+        // UDP headers require 8 bytes.
+        let payload = [0x04, 0xD2, 0x00, 0x35, 0x00, 0x08];
+
+        let result = parser.parse_udp(&payload);
+
+        assert!(matches!(result, Err(PacketParseError::Truncated)));
+    }
+
+    #[test]
+    fn parses_ipv4_udp_packet() {
+        let parser = PacketParser::new();
+
+        // Ethernet II header (14 bytes) + ipv4 header (20 bytes)
+        // + UDP header (8 bytes) + 4 byte payload.
+        let bytes = [
+            0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, // MAC destination
+            0x11, 0x22, 0x33, 0x44, 0x55, 0x66, // MAC source
+            0x08, 0x00, // EtherType: ipv4
+            // IP header
+            0x45, // version 4, IHL 5
+            0x00, // DSCP/ECN
+            0x00, 0x20, // total length: 32 bytes
+            0x12, 0x34, // identification
+            0x00, 0x00, // flags + fragment offset
+            0x40, // ttl
+            0x11, // protocol: UDP (17)
+            0x00, 0x00, // header checksum
+            0xc0, 0xa8, 0x01, 0x0a, // source: 192.168.1.10
+            0xc0, 0xa8, 0x01, 0x14, // source: 192.168.1.20
+            // UDP header
+            0x04, 0xd2, // source port: 1234
+            0x00, 0x35, // destionation port: 53
+            0x00, 0x0c, // udp length: 12 bytes
+            0x12, 0x34, // udp checksum
+            // udp payload
+            0xde, 0xad, 0xbe, 0xef,
+        ];
+
+        // Constructing CaptureRecord
+        let record = CaptureRecord::new(&bytes);
+
+        let packet = parser
+            .parse(&record)
+            .expect("valid IPv4/UDP packet should parse");
+
+        match packet.network {
+            ParsedNetwork::Ipv4 {
+                packet: ipv4,
+                transport: ParsedTransport::Udp(udp),
+            } => {
+                assert_eq!(ipv4.protocol, IpProtocol::Udp);
+
+                assert_eq!(udp.source_port, 1234);
+                assert_eq!(udp.destination_port, 53);
+                assert_eq!(udp.length, 12);
+                assert_eq!(udp.checksum, 0x1234);
+            }
+
+            other => panic!("expected IPv4/UDP packet, got {other:?}"),
+        }
     }
 }

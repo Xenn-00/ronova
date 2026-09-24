@@ -1,3 +1,5 @@
+use crate::packet::ParsedUdp;
+
 use super::ParsedTcp;
 
 // Represents a recognized transport layer protocol.
@@ -9,13 +11,7 @@ pub enum ParsedTransport {
     Tcp(ParsedTcp),
 
     // User Datagram Protocol.
-    Udp {
-        // Source port number.
-        source_port: u16,
-
-        // Destination port number.
-        destination_port: u16,
-    },
+    Udp(ParsedUdp),
 
     // Internet Control Message Protocol.
     Icmp {
@@ -45,7 +41,7 @@ pub enum ParsedTransport {
 #[cfg(test)]
 mod tests {
     use super::ParsedTransport;
-    use crate::packet::ParsedTcp;
+    use crate::packet::{ParsedTcp, ParsedUdp};
 
     #[test]
     fn represents_supported_transport_protocols() {
@@ -93,14 +89,18 @@ mod tests {
         );
 
         assert_eq!(
-            ParsedTransport::Udp {
+            ParsedTransport::Udp(ParsedUdp {
                 source_port: 1234,
                 destination_port: 5678,
-            },
-            ParsedTransport::Udp {
+                length: 1000,
+                checksum: 0x1234
+            }),
+            ParsedTransport::Udp(ParsedUdp {
                 source_port: 1234,
                 destination_port: 5678,
-            }
+                length: 1000,
+                checksum: 0x1234
+            })
         );
 
         assert_eq!(

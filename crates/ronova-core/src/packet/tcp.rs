@@ -16,6 +16,7 @@ pub struct ParsedTcp {
     pub acknowledgement_number: u32,
 
     // ECN-nonce flag. -> nonce ist ein Zahl, die nur einziges Mal verwendet wird, um zu signalisieren, dass der Sender ECN unterstützt.
+    // ECN: Explicit Congestion Notification, ein Mechanismus, der es Routern ermöglicht, Netzwerküberlastungen zu signalisieren, ohne Pakete zu verwerfen.
     pub ns: bool,
 
     // FIN-flag.
