@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, hash_map::IntoIter};
 
 use super::{Direction, FlowKey, FlowState};
 
@@ -36,6 +36,19 @@ impl FlowTracker {
     // Returns whether the tracker currently contains no flows.
     pub fn is_empty(&self) -> bool {
         self.flows.is_empty()
+    }
+}
+
+impl IntoIterator for FlowTracker {
+    type Item = (FlowKey, FlowState);
+    type IntoIter = IntoIter<FlowKey, FlowState>;
+
+    // Consumes the tracker and yields every tracked flow together
+    // with its accumulated state.
+    // Der Tracker wird vollständig konsumiert; dadurch sind keine
+    // Clones der Flow-Daten für den finalen Report notwendig.
+    fn into_iter(self) -> Self::IntoIter {
+        self.flows.into_iter()
     }
 }
 
@@ -144,5 +157,26 @@ mod tests {
                 .byte_count,
             200
         );
+    }
+
+    #[test]
+    fn consumes_tracker_into_flow_entries() {
+        let mut tracker = FlowTracker::new();
+        let flow_key = tcp_flow_key();
+
+        tracker.update(flow_key, Direction::AtoB, 100);
+
+        let entries: Vec<_> = tracker.into_iter().collect();
+
+        assert_eq!(entries.len(), 1);
+
+        let (reported_key, state) = entries
+            .into_iter()
+            .next()
+            .expect("tracker should contain one flow");
+
+        assert_eq!(reported_key, flow_key);
+        assert_eq!(state.packet_count, 1);
+        assert_eq!(state.byte_count, 100);
     }
 }
