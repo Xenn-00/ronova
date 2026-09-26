@@ -1,9 +1,11 @@
 use std::{cmp::Ordering, net::Ipv4Addr};
 
+use serde::Serialize;
+
 // Represent one transport layer endpoiint in a Ronova flow
 // Ein Endpoint beschreibt nur IP Adresse und Port
 // Direction und Rolleninformationen gehören nicht hier hinein.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 pub struct Endpoint {
     pub ip: Ipv4Addr,
     pub port: u16,

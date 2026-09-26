@@ -1,5 +1,7 @@
+use serde::Serialize;
+
 // Identifies the protocol carried by an IP packet.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 pub enum IpProtocol {
     // Internet Control Message Protocol (ICMP)
     Icmp,

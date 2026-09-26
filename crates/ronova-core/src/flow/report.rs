@@ -1,3 +1,5 @@
+use serde::Serialize;
+
 use crate::packet::IpProtocol;
 
 use super::{Endpoint, FlowKey, FlowState};
@@ -5,7 +7,7 @@ use super::{Endpoint, FlowKey, FlowState};
 // Represents the final reportable result of one observed flow.
 // Der FlowReport beschreibt die Flow-Identität zusammen mit den
 // während der Analyse gesammelten Statistiken.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Serialize)]
 pub struct FlowReport {
     // First endpoint of the canonical flow.
     pub(super) endpoint_a: Endpoint,
