@@ -1,5 +1,9 @@
 use super::{AnalysisReport, Finding};
-use crate::flow::{Direction, FlowKey, FlowReport, FlowTracker};
+use crate::{
+    capture::CaptureRecord,
+    flow::{Direction, FlowIdentity, FlowKey, FlowReport, FlowTracker},
+    packet::{PacketParseError, PacketParser},
+};
 
 #[derive(Debug, Default)]
 pub(crate) struct AnalysisState {
@@ -40,5 +44,25 @@ impl AnalysisState {
         packet_length: usize,
     ) {
         self.flow_tracker.update(flow_key, direction, packet_length);
+    }
+
+    // Parses one captured packet and updates flow state when the packet
+    // contains a flow identity supported by Ronova.
+    // Der AnalysisState koordiniert Parsing und Flow-Tracking,
+    // ohne selbst die Packet-Parsing-Details zu übernehmen.
+    pub(crate) fn process_packet(
+        &mut self,
+        parser: &PacketParser,
+        record: &CaptureRecord<'_>,
+    ) -> Result<(), PacketParseError> {
+        let packet = parser.parse(record)?;
+
+        if let Some(identity) = FlowIdentity::from_packet(&packet) {
+            let (flow_key, direction) = identity.flow_key_and_direction();
+
+            self.update_flow(flow_key, direction, record.data().len());
+        }
+
+        Ok(())
     }
 }
