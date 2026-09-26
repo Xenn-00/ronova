@@ -4,6 +4,7 @@ mod state;
 
 pub use finding::Finding;
 pub use report::AnalysisReport;
+pub use state::AnalysisState;
 
 #[cfg(test)]
 mod tests {

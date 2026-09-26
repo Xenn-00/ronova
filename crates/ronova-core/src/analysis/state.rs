@@ -6,13 +6,13 @@ use crate::{
 };
 
 #[derive(Debug, Default)]
-pub(crate) struct AnalysisState {
+pub struct AnalysisState {
     findings: Vec<Finding>,
     flow_tracker: FlowTracker,
 }
 
 impl AnalysisState {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self::default()
     }
 
@@ -20,7 +20,7 @@ impl AnalysisState {
         self.findings.push(finding);
     }
 
-    pub(crate) fn into_report(self) -> AnalysisReport {
+    pub fn into_report(self) -> AnalysisReport {
         // Consume the tracker so no FlowState or FlowKey needs to be cloned.
         // Der Tracker wird vollständig konsumiert und in finale Reports umgewandelt.
         let flows: Vec<FlowReport> = self
@@ -50,7 +50,7 @@ impl AnalysisState {
     // contains a flow identity supported by Ronova.
     // Der AnalysisState koordiniert Parsing und Flow-Tracking,
     // ohne selbst die Packet-Parsing-Details zu übernehmen.
-    pub(crate) fn process_packet(
+    pub fn process_packet(
         &mut self,
         parser: &PacketParser,
         record: &CaptureRecord<'_>,
