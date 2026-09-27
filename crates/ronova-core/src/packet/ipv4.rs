@@ -51,7 +51,7 @@ mod tests {
             0x08, 0x00,
         ];
 
-        let record = CaptureRecord::new(&bytes);
+        let record = CaptureRecord::new(1, &bytes);
         let parser = PacketParser::new();
 
         let ethernet = parser
@@ -122,7 +122,7 @@ mod tests {
             0x00, 0x00, // Urgent pointer.
         ];
 
-        let record = CaptureRecord::new(&bytes);
+        let record = CaptureRecord::new(1, &bytes);
         let parser = PacketParser::new();
 
         let packet = parser

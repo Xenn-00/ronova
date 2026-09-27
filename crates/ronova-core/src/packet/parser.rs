@@ -217,7 +217,7 @@ mod tests {
             0x12, 0x34, // Unknown EtherType.
         ];
 
-        let record = CaptureRecord::new(&bytes);
+        let record = CaptureRecord::new(1, &bytes);
         let parser = PacketParser::new();
 
         let packet = parser
@@ -241,7 +241,7 @@ mod tests {
             0x86, 0xDD,
         ];
 
-        let record = CaptureRecord::new(&bytes);
+        let record = CaptureRecord::new(1, &bytes);
         let parser = PacketParser::new();
 
         let ethernet = parser
@@ -257,7 +257,7 @@ mod tests {
     fn rejects_truncated_ethernet_header() {
         let bytes = [0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77];
 
-        let record = CaptureRecord::new(&bytes);
+        let record = CaptureRecord::new(1, &bytes);
         let parser = PacketParser::new();
 
         let result = parser.parse_ethernet(&record);
@@ -277,7 +277,7 @@ mod tests {
             0x12, 0x34,
         ];
 
-        let record = CaptureRecord::new(&bytes);
+        let record = CaptureRecord::new(1, &bytes);
         let parser = PacketParser::new();
 
         let packet = parser
@@ -317,7 +317,7 @@ mod tests {
             0x00, 0x00, // Urgent pointer.
         ];
 
-        let record = CaptureRecord::new(&bytes);
+        let record = CaptureRecord::new(1, &bytes);
         let parser = PacketParser::new();
 
         let packet = parser
@@ -452,7 +452,7 @@ mod tests {
         ];
 
         // Constructing CaptureRecord
-        let record = CaptureRecord::new(&bytes);
+        let record = CaptureRecord::new(1, &bytes);
 
         let packet = parser
             .parse(&record)

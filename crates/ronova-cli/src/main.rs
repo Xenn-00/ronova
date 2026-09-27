@@ -20,6 +20,9 @@ struct Cli {
     capture: PathBuf,
 }
 
+// Maximum number of sample packet shown in the human-readable CLI output.
+const SAMPLE_SIZE: usize = 10;
+
 fn main() {
     // Parse command-line arguments before starting the analysis pipeline.
     let cli = Cli::parse();
@@ -75,7 +78,7 @@ fn run(cli: Cli) -> Result<(), String> {
     // should make the incomplete capture explicit to the user.
     if let CaptureCompletion::Partial { reason } = completion {
         println!();
-        println!("Capture completed partialy: {reason:?}");
+        println!("Capture completed partially: {reason:?}");
     };
 
     Ok(())
@@ -89,7 +92,27 @@ fn print_report(report: &AnalysisReport) {
     println!("Ronova Analysis");
     println!("===============");
     println!();
+
     println!("Flows: {}", report.flows().len());
+    println!(
+        "Unsupported packets: {}",
+        report.unsupported_packets().len()
+    );
+    println!("Defects: {}", report.defects().len());
+
+    if !report.unsupported_packets().is_empty() {
+        println!();
+        println!("Unsupported packets");
+
+        print_unsupported(report);
+    }
+
+    if !report.defects().is_empty() {
+        println!();
+        println!("Packet defects");
+
+        print_defects(report);
+    }
 
     for (index, flow) in report.flows().iter().enumerate() {
         println!();
@@ -120,5 +143,65 @@ fn print_report(report: &AnalysisReport) {
         println!("  B -> A");
         println!("    Packets  : {}", flow.b_to_a_packets());
         println!("    Bytes    : {}", flow.b_to_a_bytes());
+    }
+}
+
+// Print a bounded sample so a large capture cannot flood the terminal.
+fn print_defects(report: &AnalysisReport) {
+    let defects = report.defects();
+
+    println!("Packet defects: {}", defects.len());
+
+    if defects.is_empty() {
+        return;
+    }
+
+    println!();
+    println!(
+        "Showing first {} defect(s):",
+        defects.len().min(SAMPLE_SIZE)
+    );
+
+    for defect in defects.iter().take(SAMPLE_SIZE) {
+        println!("  #{}: {:?}", defect.packet_number(), defect.reason());
+    }
+
+    // Tell the user how many defects were intentionally omitted.
+    let omitted = defects.len().saturating_sub(SAMPLE_SIZE);
+
+    if omitted > 0 {
+        println!("  ... {} more defect(s)", omitted);
+    }
+}
+
+// Print a bounded sample so a large capture cannot flood the terminal.
+fn print_unsupported(report: &AnalysisReport) {
+    let unsupported = report.unsupported_packets();
+
+    println!("Packet unsupported: {}", unsupported.len());
+
+    if unsupported.is_empty() {
+        return;
+    }
+
+    println!();
+    println!(
+        "Showing first {} unsupported(s):",
+        unsupported.len().min(SAMPLE_SIZE)
+    );
+
+    for unsupported in unsupported.iter().take(SAMPLE_SIZE) {
+        println!(
+            "  #{}: {:?}",
+            unsupported.packet_number(),
+            unsupported.reason()
+        );
+    }
+
+    // Tell the user how many unsupported were intentionally omitted.
+    let omitted = unsupported.len().saturating_sub(SAMPLE_SIZE);
+
+    if omitted > 0 {
+        println!("  ... {} more unsupported(s)", omitted);
     }
 }

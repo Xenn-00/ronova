@@ -121,7 +121,7 @@ mod tests {
             192, 168, 1, 1,
         ];
 
-        let record = CaptureRecord::new(&bytes);
+        let record = CaptureRecord::new(1, &bytes);
         let parser = PacketParser::new();
 
         let packet = parser
@@ -158,7 +158,7 @@ mod tests {
             0x08, 0x06,
         ];
 
-        let record = CaptureRecord::new(&bytes);
+        let record = CaptureRecord::new(1, &bytes);
         let parser = PacketParser::new();
 
         let ethernet = parser

@@ -1,5 +1,7 @@
+use serde::Serialize;
+
 // Errors produces while parsing an individual captured packet.
-#[derive(Debug)]
+#[derive(Debug, Serialize, Clone, Copy)]
 pub enum PacketParseError {
     // The captured bytes do not contain a complete packet header.
     Truncated,
