@@ -44,7 +44,7 @@ impl UnsupportedPacket {
 mod tests {
     use crate::{
         analysis::{AnalysisState, UnsupportedReason},
-        capture::CaptureRecord,
+        capture::{CaptureRecord, CaptureTimestamp},
         packet::PacketParser,
     };
 
@@ -57,7 +57,12 @@ mod tests {
             0x12, 0x34,
         ];
 
-        let record = CaptureRecord::new(23, &packet);
+        let record = CaptureRecord::new(
+            23,
+            &packet,
+            CaptureTimestamp::new(1, 2),
+            packet.len() as u32,
+        );
 
         let parser = PacketParser::new();
         let mut state = AnalysisState::new();
@@ -100,7 +105,12 @@ mod tests {
             0xc0, 0xa8, 0x01, 0x14,
         ];
 
-        let record = CaptureRecord::new(31, &packet);
+        let record = CaptureRecord::new(
+            31,
+            &packet,
+            CaptureTimestamp::new(1, 2),
+            packet.len() as u32,
+        );
 
         let parser = PacketParser::new();
         let mut state = AnalysisState::new();

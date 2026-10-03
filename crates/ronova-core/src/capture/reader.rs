@@ -7,6 +7,7 @@ use pcap_parser::{PcapBlockOwned, PcapError, pcap::LegacyPcapReader, traits::Pca
 
 use crate::capture::{
     CaptureCompletion, CaptureProcessError, CaptureRecord, CaptureTerminationReason,
+    CaptureTimestamp,
 };
 
 use super::CaptureError;
@@ -79,7 +80,12 @@ impl CaptureReader {
 
                         // `CaptureRecord` borrows packet bytes only whle
                         // `packet` remains alive in this iteration.
-                        let record = CaptureRecord::new(packet_number, &packet.data);
+                        let record = CaptureRecord::new(
+                            packet_number,
+                            &packet.data,
+                            CaptureTimestamp::new(packet.ts_sec, packet.ts_usec),
+                            packet.origlen,
+                        );
 
                         handler(record).map_err(CaptureProcessError::Handler)?;
                     }

@@ -94,11 +94,6 @@ fn print_report(report: &AnalysisReport) {
     println!();
 
     println!("Flows: {}", report.flows().len());
-    println!(
-        "Unsupported packets: {}",
-        report.unsupported_packets().len()
-    );
-    println!("Defects: {}", report.defects().len());
 
     if !report.unsupported_packets().is_empty() {
         println!();
@@ -178,7 +173,7 @@ fn print_defects(report: &AnalysisReport) {
 fn print_unsupported(report: &AnalysisReport) {
     let unsupported = report.unsupported_packets();
 
-    println!("Packet unsupported: {}", unsupported.len());
+    println!("Unsupported packets: {}", unsupported.len());
 
     if unsupported.is_empty() {
         return;

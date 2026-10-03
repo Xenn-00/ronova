@@ -47,7 +47,7 @@ pub fn parse_arp(data: &[u8]) -> Result<ParsedArp, PacketParseError> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        capture::CaptureRecord,
+        capture::{CaptureRecord, CaptureTimestamp},
         packet::{
             PacketParseError, PacketParser, ParsedArp, ParsedEthernet, ParsedNetwork, parse_arp,
         },
@@ -121,7 +121,7 @@ mod tests {
             192, 168, 1, 1,
         ];
 
-        let record = CaptureRecord::new(1, &bytes);
+        let record = CaptureRecord::new(1, &bytes, CaptureTimestamp::new(1, 2), bytes.len() as u32);
         let parser = PacketParser::new();
 
         let packet = parser
@@ -158,7 +158,7 @@ mod tests {
             0x08, 0x06,
         ];
 
-        let record = CaptureRecord::new(1, &bytes);
+        let record = CaptureRecord::new(1, &bytes, CaptureTimestamp::new(1, 2), bytes.len() as u32);
         let parser = PacketParser::new();
 
         let ethernet = parser

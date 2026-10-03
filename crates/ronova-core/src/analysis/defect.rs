@@ -34,9 +34,10 @@ impl PacketDefect {
 
 #[cfg(test)]
 mod tests {
+
     use crate::{
         analysis::AnalysisState,
-        capture::CaptureRecord,
+        capture::{CaptureRecord, CaptureTimestamp},
         packet::{PacketParseError, PacketParser},
     };
 
@@ -49,7 +50,12 @@ mod tests {
         ];
 
         // Packet number comes from the capture layer.
-        let record = CaptureRecord::new(7, &malformed_packet);
+        let record = CaptureRecord::new(
+            7,
+            &malformed_packet,
+            CaptureTimestamp::new(1, 1),
+            malformed_packet.len() as u32,
+        );
 
         let parser = PacketParser::new();
         let mut state = AnalysisState::new();
@@ -97,21 +103,36 @@ mod tests {
         let mut state = AnalysisState::new();
 
         // Packet #1 is valid.
-        let record = CaptureRecord::new(1, &valid_packet);
+        let record = CaptureRecord::new(
+            1,
+            &valid_packet,
+            CaptureTimestamp::new(1, 1),
+            valid_packet.len() as u32,
+        );
 
         state
             .process_packet(&parser, &record)
             .expect("valid packet should be processed successfully");
 
         // Packet #2 is malformed.
-        let record = CaptureRecord::new(2, &malformed_packet);
+        let record = CaptureRecord::new(
+            2,
+            &malformed_packet,
+            CaptureTimestamp::new(1, 2),
+            malformed_packet.len() as u32,
+        );
 
         state
             .process_packet(&parser, &record)
             .expect("malformed packet should become a defect");
 
         // Packet #3 is valid again.
-        let record = CaptureRecord::new(3, &valid_packet);
+        let record = CaptureRecord::new(
+            3,
+            &valid_packet,
+            CaptureTimestamp::new(1, 3),
+            valid_packet.len() as u32,
+        );
 
         state
             .process_packet(&parser, &record)

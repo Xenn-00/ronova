@@ -112,7 +112,7 @@ impl AnalysisState {
         if let Some(identity) = FlowIdentity::from_packet(&packet) {
             let (flow_key, direction) = identity.flow_key_and_direction();
 
-            self.update_flow(flow_key, direction, record.data().len());
+            self.update_flow(flow_key, direction, record.captured_length());
         }
 
         Ok(())
@@ -123,7 +123,7 @@ impl AnalysisState {
 mod tests {
     use crate::{
         analysis::{AnalysisState, Finding, PacketDefect, UnsupportedPacket, UnsupportedReason},
-        capture::CaptureRecord,
+        capture::{CaptureRecord, CaptureTimestamp},
         flow::{Direction, Endpoint, FlowKey},
         packet::{IpProtocol, PacketParseError, PacketParser},
     };
@@ -202,7 +202,8 @@ mod tests {
         ];
 
         // CaptureRecord only borrows the packet bytes.
-        let record = CaptureRecord::new(1, &packet);
+        let record =
+            CaptureRecord::new(1, &packet, CaptureTimestamp::new(1, 2), packet.len() as u32);
 
         // The parser is injected into AnalysisState instead of being owned by it.
         let parser = PacketParser::new();

@@ -38,7 +38,7 @@ mod tests {
     use std::net::Ipv4Addr;
 
     use crate::{
-        capture::CaptureRecord,
+        capture::{CaptureRecord, CaptureTimestamp},
         packet::{IpProtocol, PacketParseError, PacketParser, ParsedNetwork},
     };
 
@@ -51,7 +51,7 @@ mod tests {
             0x08, 0x00,
         ];
 
-        let record = CaptureRecord::new(1, &bytes);
+        let record = CaptureRecord::new(1, &bytes, CaptureTimestamp::new(1, 2), bytes.len() as u32);
         let parser = PacketParser::new();
 
         let ethernet = parser
@@ -122,7 +122,7 @@ mod tests {
             0x00, 0x00, // Urgent pointer.
         ];
 
-        let record = CaptureRecord::new(1, &bytes);
+        let record = CaptureRecord::new(1, &bytes, CaptureTimestamp::new(1, 2), bytes.len() as u32);
         let parser = PacketParser::new();
 
         let packet = parser
