@@ -3,6 +3,8 @@ use std::collections::{
     hash_map::{Entry, IntoIter},
 };
 
+use crate::flow::TcpObservation;
+
 use super::{Direction, FlowKey, FlowState, FlowTimestamp};
 
 // Tracks the accumulated state of all observed bidirectional flows.
@@ -27,14 +29,22 @@ impl FlowTracker {
         direction: Direction,
         packet_length: usize,
         timestamp: FlowTimestamp,
+        tcp_observation: Option<TcpObservation>,
     ) {
         match self.flows.entry(flow_key) {
             Entry::Vacant(entry) => {
-                entry.insert(FlowState::new(direction, packet_length, timestamp));
+                entry.insert(FlowState::new(
+                    direction,
+                    packet_length,
+                    timestamp,
+                    tcp_observation,
+                ));
             }
 
             Entry::Occupied(mut entry) => {
-                entry.get_mut().update(direction, packet_length, timestamp);
+                entry
+                    .get_mut()
+                    .update(direction, packet_length, timestamp, tcp_observation);
             }
         }
     }
@@ -106,7 +116,13 @@ mod tests {
         let mut tracker = FlowTracker::new();
         let flow_key = tcp_flow_key();
 
-        tracker.update(flow_key, Direction::AtoB, 100, FlowTimestamp::new(1, 1));
+        tracker.update(
+            flow_key,
+            Direction::AtoB,
+            100,
+            FlowTimestamp::new(1, 1),
+            None,
+        );
 
         assert_eq!(tracker.len(), 1);
 
@@ -127,9 +143,27 @@ mod tests {
         let mut tracker = FlowTracker::new();
         let flow_key = tcp_flow_key();
 
-        tracker.update(flow_key, Direction::AtoB, 100, FlowTimestamp::new(1, 1));
-        tracker.update(flow_key, Direction::BtoA, 200, FlowTimestamp::new(1, 2));
-        tracker.update(flow_key, Direction::AtoB, 50, FlowTimestamp::new(1, 3));
+        tracker.update(
+            flow_key,
+            Direction::AtoB,
+            100,
+            FlowTimestamp::new(1, 1),
+            None,
+        );
+        tracker.update(
+            flow_key,
+            Direction::BtoA,
+            200,
+            FlowTimestamp::new(1, 2),
+            None,
+        );
+        tracker.update(
+            flow_key,
+            Direction::AtoB,
+            50,
+            FlowTimestamp::new(1, 3),
+            None,
+        );
 
         assert_eq!(tracker.len(), 1);
 
@@ -158,8 +192,20 @@ mod tests {
 
         let udp_key = FlowKey::new(tcp_key.endpoint_a, tcp_key.endpoint_b, IpProtocol::Udp);
 
-        tracker.update(tcp_key, Direction::AtoB, 100, FlowTimestamp::new(1, 1));
-        tracker.update(udp_key, Direction::AtoB, 200, FlowTimestamp::new(1, 1));
+        tracker.update(
+            tcp_key,
+            Direction::AtoB,
+            100,
+            FlowTimestamp::new(1, 1),
+            None,
+        );
+        tracker.update(
+            udp_key,
+            Direction::AtoB,
+            200,
+            FlowTimestamp::new(1, 1),
+            None,
+        );
 
         assert_eq!(tracker.len(), 2);
 
@@ -214,7 +260,13 @@ mod tests {
         let mut tracker = FlowTracker::new();
         let flow_key = tcp_flow_key();
 
-        tracker.update(flow_key, Direction::AtoB, 100, FlowTimestamp::new(1, 1));
+        tracker.update(
+            flow_key,
+            Direction::AtoB,
+            100,
+            FlowTimestamp::new(1, 1),
+            None,
+        );
 
         let entries: Vec<_> = tracker.into_iter().collect();
 

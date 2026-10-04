@@ -1,8 +1,12 @@
+use std::time::Duration;
+
+use serde::Serialize;
+
 // Represents a timestamp used by the flow analysis layer.
 //
 // Der FlowTimestamp hält die Zeit unabhängig von der Capture-Schicht,
 // damit die Flow-Logik nicht direckt von CaptureTimestamp abhängt.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 pub struct FlowTimestamp {
     seconds: u64,
     microseconds: u32,
@@ -34,7 +38,7 @@ impl FlowTimestamp {
     //
     // Die Dauer wird nur zwischen zwei beobachteten Zeitpunkten berechnet.
     // Dadurch muss die Flow-Schicht keine Annahmen über fehlende Pakete machen.
-    pub fn duration_since(&self, earlier: Self) -> Option<Self> {
+    pub fn duration_since(&self, earlier: Self) -> Option<Duration> {
         if *self < earlier {
             return None;
         }
@@ -51,9 +55,32 @@ impl FlowTimestamp {
             )
         };
 
-        Some(Self {
-            seconds,
-            microseconds,
-        })
+        Some(Duration::new(seconds, microseconds * 1_000))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn calculates_duration_between_timestamps() {
+        let earlier = FlowTimestamp::new(10, 250_000);
+        let later = FlowTimestamp::new(13, 750_000);
+
+        let duration = later
+            .duration_since(earlier)
+            .expect("later timestamp should not be earlier than the reference");
+
+        assert_eq!(duration.as_secs(), 3);
+        assert_eq!(duration.subsec_micros(), 500_000);
+    }
+
+    #[test]
+    fn returns_none_when_timestamp_is_earlier() {
+        let earlier = FlowTimestamp::new(13, 750_000);
+        let later = FlowTimestamp::new(10, 250_000);
+
+        assert_eq!(later.duration_since(earlier), None);
     }
 }

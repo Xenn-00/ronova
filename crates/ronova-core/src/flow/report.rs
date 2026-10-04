@@ -1,8 +1,10 @@
+use std::time::Duration;
+
 use serde::Serialize;
 
-use crate::packet::IpProtocol;
+use crate::{flow::Direction, packet::IpProtocol};
 
-use super::{Endpoint, FlowKey, FlowState};
+use super::{Endpoint, FlowKey, FlowState, FlowTimestamp};
 
 // Represents the final reportable result of one observed flow.
 // Der FlowReport beschreibt die Flow-Identität zusammen mit den
@@ -17,6 +19,15 @@ pub struct FlowReport {
 
     // Transport protocol used by the flow.
     pub(super) protocol: IpProtocol,
+
+    // Direction observed for the first packet of this flow.
+    pub(super) first_direction: Direction,
+
+    // Timestamp of the first packet observed in this flow.
+    pub(super) first_seen: FlowTimestamp,
+
+    // Timestamp of the most recent packet observed in this flow.
+    pub(super) last_seen: FlowTimestamp,
 
     // Total number of packets observed in this flow.
     pub(super) packet_count: u64,
@@ -52,6 +63,9 @@ impl FlowReport {
             b_to_a_packets: flow_state.b_to_a_packets,
             a_to_b_bytes: flow_state.a_to_b_bytes,
             b_to_a_bytes: flow_state.b_to_a_bytes,
+            first_seen: flow_state.first_seen,
+            last_seen: flow_state.last_seen,
+            first_direction: flow_state.first_direction,
         }
     }
 
@@ -99,6 +113,26 @@ impl FlowReport {
     pub fn b_to_a_bytes(&self) -> u64 {
         self.b_to_a_bytes
     }
+
+    // Returns the timestamp of the first packet observed in the flow.
+    pub fn first_seen(&self) -> FlowTimestamp {
+        self.first_seen
+    }
+
+    // Returns the timestamp of the most recent packet observed in the flow.
+    pub fn last_seen(&self) -> FlowTimestamp {
+        self.last_seen
+    }
+
+    // Returns the direction observed for the first packet of the flow.
+    pub fn first_direction(&self) -> Direction {
+        self.first_direction
+    }
+
+    // Returns the elapsed time between the first and most recent packet.
+    pub fn duration(&self) -> Option<Duration> {
+        self.last_seen.duration_since(self.first_seen)
+    }
 }
 
 #[cfg(test)]
@@ -126,12 +160,16 @@ mod tests {
             IpProtocol::Tcp,
         );
 
-        let mut flow_state = FlowState::new(Direction::AtoB, 0, FlowTimestamp::new(1, 1));
+        let mut flow_state = FlowState::new(Direction::AtoB, 0, FlowTimestamp::new(1, 1), None);
 
-        flow_state.update(Direction::AtoB, 100, FlowTimestamp::new(1, 2));
-        flow_state.update(Direction::BtoA, 200, FlowTimestamp::new(1, 3));
+        flow_state.update(Direction::AtoB, 100, FlowTimestamp::new(1, 2), None);
+        flow_state.update(Direction::BtoA, 200, FlowTimestamp::new(1, 3), None);
 
         let report = FlowReport::from_parts(flow_key, flow_state);
+
+        let duration = report
+            .duration()
+            .expect("last_seen should not be earlier than first_seen");
 
         assert_eq!(report.endpoint_a().ip, Ipv4Addr::new(10, 0, 0, 1));
         assert_eq!(report.endpoint_a().port, 50000);
@@ -158,5 +196,11 @@ mod tests {
             report.byte_count(),
             report.a_to_b_bytes() + report.b_to_a_bytes()
         );
+
+        assert_eq!(report.first_seen(), FlowTimestamp::new(1, 1));
+        assert_eq!(report.last_seen(), FlowTimestamp::new(1, 3));
+
+        assert_eq!(duration.as_secs(), 0);
+        assert_eq!(duration.subsec_micros(), 2);
     }
 }

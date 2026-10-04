@@ -1,7 +1,9 @@
 use super::{AnalysisReport, Finding, PacketDefect, UnsupportedPacket, UnsupportedReason};
 use crate::{
     capture::CaptureRecord,
-    flow::{Direction, FlowIdentity, FlowKey, FlowReport, FlowTimestamp, FlowTracker},
+    flow::{
+        Direction, FlowIdentity, FlowKey, FlowReport, FlowTimestamp, FlowTracker, TcpObservation,
+    },
     packet::{PacketParseError, PacketParser, ParsedNetwork, ParsedTransport},
 };
 
@@ -58,9 +60,15 @@ impl AnalysisState {
         direction: Direction,
         packet_length: usize,
         timestamp: FlowTimestamp,
+        tcp_observation: Option<TcpObservation>,
     ) {
-        self.flow_tracker
-            .update(flow_key, direction, packet_length, timestamp);
+        self.flow_tracker.update(
+            flow_key,
+            direction,
+            packet_length,
+            timestamp,
+            tcp_observation,
+        );
     }
 
     // Parses one captured packet and updates flow state when the packet
@@ -124,7 +132,22 @@ impl AnalysisState {
         if let Some(identity) = FlowIdentity::from_packet(&packet) {
             let (flow_key, direction) = identity.flow_key_and_direction();
 
-            self.update_flow(flow_key, direction, record.captured_length(), timestamp);
+            let tcp_observation = match &packet.network {
+                ParsedNetwork::Ipv4 {
+                    transport: ParsedTransport::Tcp(tcp),
+                    ..
+                } => Some(TcpObservation::from_tcp(tcp)),
+
+                _ => None,
+            };
+
+            self.update_flow(
+                flow_key,
+                direction,
+                record.captured_length(),
+                timestamp,
+                tcp_observation,
+            );
         }
 
         Ok(())
@@ -183,8 +206,20 @@ mod tests {
             IpProtocol::Tcp,
         );
 
-        state.update_flow(flow_key, Direction::AtoB, 100, FlowTimestamp::new(1, 1));
-        state.update_flow(flow_key, Direction::BtoA, 200, FlowTimestamp::new(1, 2));
+        state.update_flow(
+            flow_key,
+            Direction::AtoB,
+            100,
+            FlowTimestamp::new(1, 1),
+            None,
+        );
+        state.update_flow(
+            flow_key,
+            Direction::BtoA,
+            200,
+            FlowTimestamp::new(1, 2),
+            None,
+        );
 
         let report = state.into_report();
 
