@@ -1,7 +1,7 @@
 use super::{AnalysisReport, Finding, PacketDefect, UnsupportedPacket, UnsupportedReason};
 use crate::{
     capture::CaptureRecord,
-    flow::{Direction, FlowIdentity, FlowKey, FlowReport, FlowTracker},
+    flow::{Direction, FlowIdentity, FlowKey, FlowReport, FlowTimestamp, FlowTracker},
     packet::{PacketParseError, PacketParser, ParsedNetwork, ParsedTransport},
 };
 
@@ -57,8 +57,10 @@ impl AnalysisState {
         flow_key: FlowKey,
         direction: Direction,
         packet_length: usize,
+        timestamp: FlowTimestamp,
     ) {
-        self.flow_tracker.update(flow_key, direction, packet_length);
+        self.flow_tracker
+            .update(flow_key, direction, packet_length, timestamp);
     }
 
     // Parses one captured packet and updates flow state when the packet
@@ -108,11 +110,21 @@ impl AnalysisState {
             _ => {}
         }
 
+        // Converts capture-layer timestamp metadata into flow-layer timestamp metadata.
+        //
+        // Die Flow-Schicht soll nicht direkt von CaptureTimestamp abhängen,
+        // deswegen wird die Zeit an der Grenze zwischen Analysis und Flow umgewandelt.
+        let capture_timestamp = record.timestamp();
+        let timestamp = FlowTimestamp::new(
+            capture_timestamp.seconds(),
+            capture_timestamp.microseconds(),
+        );
+
         // Only supported packets reach flow tracking.
         if let Some(identity) = FlowIdentity::from_packet(&packet) {
             let (flow_key, direction) = identity.flow_key_and_direction();
 
-            self.update_flow(flow_key, direction, record.captured_length());
+            self.update_flow(flow_key, direction, record.captured_length(), timestamp);
         }
 
         Ok(())
@@ -124,7 +136,7 @@ mod tests {
     use crate::{
         analysis::{AnalysisState, Finding, PacketDefect, UnsupportedPacket, UnsupportedReason},
         capture::{CaptureRecord, CaptureTimestamp},
-        flow::{Direction, Endpoint, FlowKey},
+        flow::{Direction, Endpoint, FlowKey, FlowTimestamp},
         packet::{IpProtocol, PacketParseError, PacketParser},
     };
 
@@ -171,8 +183,8 @@ mod tests {
             IpProtocol::Tcp,
         );
 
-        state.update_flow(flow_key, Direction::AtoB, 100);
-        state.update_flow(flow_key, Direction::BtoA, 200);
+        state.update_flow(flow_key, Direction::AtoB, 100, FlowTimestamp::new(1, 1));
+        state.update_flow(flow_key, Direction::BtoA, 200, FlowTimestamp::new(1, 2));
 
         let report = state.into_report();
 

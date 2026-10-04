@@ -106,7 +106,7 @@ mod tests {
     use std::net::Ipv4Addr;
 
     use crate::{
-        flow::{Direction, Endpoint, FlowKey, FlowState},
+        flow::{Direction, Endpoint, FlowKey, FlowState, FlowTimestamp},
         packet::IpProtocol,
     };
 
@@ -126,10 +126,10 @@ mod tests {
             IpProtocol::Tcp,
         );
 
-        let mut flow_state = FlowState::default();
+        let mut flow_state = FlowState::new(Direction::AtoB, 0, FlowTimestamp::new(1, 1));
 
-        flow_state.update(Direction::AtoB, 100);
-        flow_state.update(Direction::BtoA, 200);
+        flow_state.update(Direction::AtoB, 100, FlowTimestamp::new(1, 2));
+        flow_state.update(Direction::BtoA, 200, FlowTimestamp::new(1, 3));
 
         let report = FlowReport::from_parts(flow_key, flow_state);
 
@@ -141,13 +141,22 @@ mod tests {
 
         assert_eq!(report.protocol(), IpProtocol::Tcp);
 
-        assert_eq!(report.packet_count(), 2);
+        assert_eq!(report.packet_count(), 3);
         assert_eq!(report.byte_count(), 300);
 
-        assert_eq!(report.a_to_b_packets(), 1);
+        assert_eq!(report.a_to_b_packets(), 2);
         assert_eq!(report.a_to_b_bytes(), 100);
 
         assert_eq!(report.b_to_a_packets(), 1);
         assert_eq!(report.b_to_a_bytes(), 200);
+
+        assert_eq!(
+            report.packet_count(),
+            report.a_to_b_packets() + report.b_to_a_packets()
+        );
+        assert_eq!(
+            report.byte_count(),
+            report.a_to_b_bytes() + report.b_to_a_bytes()
+        );
     }
 }
